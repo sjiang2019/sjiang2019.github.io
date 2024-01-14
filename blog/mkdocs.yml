@@ -1,0 +1,6 @@
+site_name: Building in a Bubble
+theme:
+  name: "material"
+deploy:
+  - provider: pages
+    strategy: git
