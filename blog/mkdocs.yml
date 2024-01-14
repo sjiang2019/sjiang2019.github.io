@@ -18,6 +18,8 @@ theme:
       toggle:
         icon: material/weather-sunny
         name: Switch to dark mode
+  logo: assets/ocean_marble.png
+  favicon: assets/ocean_marble.png
 plugins:
   - search
 markdown_extensions:
