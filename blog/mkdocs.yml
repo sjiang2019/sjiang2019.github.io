@@ -1,6 +1,31 @@
 site_name: Building in a Bubble
+repo_url: https://github.com/sjiang2019/sjiang2019.github.io
+repo_name: blog
 theme:
-  name: "material"
-deploy:
-  - provider: pages
-    strategy: git
+  name: material
+  font:
+    text: Roboto Mono
+  palette:
+    # Palette toggle for dark mode
+    - scheme: slate
+      primary: black
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - scheme: default
+      primary: black
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+plugins:
+  - search
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
