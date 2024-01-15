@@ -5,6 +5,13 @@ theme:
   name: material
   font:
     text: Inter
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.footer
+    - search.suggest
   palette:
     # Palette toggle for dark mode
     - scheme: slate
@@ -20,8 +27,13 @@ theme:
         name: Switch to dark mode
   logo: assets/ocean_marble.png
   favicon: assets/ocean_marble.png
+copyright: Copyright &copy; 2024
+extra:
+  generator: false
 plugins:
   - search
+  - blog:
+      blog_dir: "./writing"
 markdown_extensions:
   - admonition
   - pymdownx.details
