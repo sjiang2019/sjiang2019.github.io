@@ -3,6 +3,7 @@ draft: true
 date: 2024-01-31
 categories:
   - Performance Engineering
+  - Building with LLMs
 ---
 
 # Performance Engineering with LLM Applications - Part 1: Identifying Bottlenecks
