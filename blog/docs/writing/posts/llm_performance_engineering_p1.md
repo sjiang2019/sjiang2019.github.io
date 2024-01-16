@@ -6,13 +6,13 @@ categories:
   - Building with LLMs
 ---
 
-# Performance Engineering with LLM Applications - Part 1: Identifying Bottlenecks
+# Building with LLMs: Profiling Python `asyncio`
 
 ## Background
 
-Performance is an important consideration for any application, especially for those built on top of Large Language Models (LLMs). Performance issues are difficult to debug and fix, leading to problems that compound over time and lead to a poor user experience. Further, language models introduce bottlenecks in the request-response cycle that are not present in traditional web applications, such as model inference speed. These bottlenecks can be exacerbated by the fact that most applications use third-party model vendors, which means that the application developer has limited control over the model itself.
+Performance is an incredibly important consideration for any application built on top of Large Language Models (LLMs). In their current form, LLMs are inherently slow, which impacts user experience. Moreover, since most applications use third-party model vendors, developers often face constraints, like rate limits and limited customization capabilities, that make performance optimization a challenging task.
 
-At Clarative, we’re building a self-documenting, AI-native tool for enterprise data management and analysis. We’ve spent a lot of time thinking about how to build a performant, model-agnostic application. In this post, I’ll share some of our learnings from debugging and improving the performance of our application. This post is meant to be a helpful guide for anyone building a Python LLM application. Before diving in, a quick primer:
+This post will delve into strategies for debugging and enhancing performance in Python asyncio applications.
 
 **What is profiling?**
 
@@ -20,11 +20,88 @@ Profiling is a technique that can be used to identify performance bottlenecks in
 
 **Why Python `asyncio`?**
 
-Python is a popular choice for building LLM applications because of its ease of use and large ecosystem of libraries, particularly in the data science, machine learning, and AI/NLP spaces. Python is . As a result, there are a number of tools and techniques for improving performance. One of the most popular is the `asyncio` module, which is a library for writing asynchronous code in Python.
+Python is a popular choice for building LLM applications because of its ease of use and large ecosystem of libraries, particularly in the data science, machine learning, and AI/NLP spaces.
 
-Whether you’re using a third-party model vendor or building with your own model, calls to the language model will need to run asynchronously because of how computationally expensive model inference is.
+The asyncio module is used to write asynchronous code in Python, enabling efficient management of I/O-bound operations. For instance, it allows for non-blocking network calls to a remotely hosted language model.
 
-As a result, applications built on top of LLMs are typically I/O bound, meaning that they spend most of their time waiting for I/O operations (e.g. network requests, file reads, etc.) to complete. In order to improve performance, these applications typically leverage asynchronous code so that they can perform other tasks while waiting for expensive I/O operations to complete.
+**The I/O bound nature of LLM applications**
+
+LLM applications typically involve communicating with a language model hosted on a remote server, either by a model provider or within the organization. This setup means that the application's performance is largely dependent on the efficiency of I/O operations, such as network requests. Asynchronous programming, facilitated by asyncio, is key to managing these operations, thereby enhancing the overall performance and responsiveness of the application.
+
+## Example
+
+Consider the following example of an application that fetches data for a user, preprocesses the data, makes parallel API calls, processes the request with a language model, postprocesses the output, and stores the results.
+
+```python
+import asyncio
+
+
+async def unnecesary_io_operation():
+    # Simulating an unnecessary I/O operation
+    await asyncio.sleep(1.0)
+    print("Unnecessary I/O operation")
+    return True
+
+
+async def fetch_user_data(user_id):
+    # Simulating a database/API call with sleep
+    await asyncio.sleep(2.0)
+    print(f"Fetched data for user {user_id}")
+    return {'user_id': user_id, 'data': 'Sample data'}
+
+
+async def preprocess_input(data):
+    # Simulating input preprocessing with an inefficient loop
+    await asyncio.sleep(1.0)
+    print("Preprocessed input data")
+    return data
+
+
+async def make_parallel_api_calls(data):
+    # Simulating parallel API calls
+    await asyncio.gather(
+        asyncio.sleep(1.0),
+        asyncio.sleep(2.0),
+    )
+    print("Made parallel API calls")
+    return data
+
+
+async def process_request_with_llm(data):
+    # Simulating LLM processing
+    await asyncio.sleep(3.0)
+    print("Processed request with LLM")
+    return {'processed_data': data['data'] + ' + LLM processed'}
+
+
+async def postprocess_output(data):
+    # Simulating output postprocessing with resource-intensive operation
+    await asyncio.sleep(1.0)
+    print("Postprocessed output data")
+    await unnecesary_io_operation()
+    return {'final_output': processed}
+
+
+async def store_results(processed_data):
+    # Simulating a database write or external API call with sleep
+    await asyncio.sleep(2.0)
+    print("Stored results")
+    return True
+
+
+async def handle_user_request(user_id):
+    user_data = await fetch_user_data(user_id)
+    preprocessed_data = await preprocess_input(user_data)
+    api_data = await make_parallel_api_calls(preprocessed_data)
+    processed_data = await process_request_with_llm(api_data)
+    postprocessed_data = await postprocess_output(processed_data)
+    result = await store_results(postprocessed_data)
+    return result
+
+
+async def main():
+    await handle_user_request('user123')
+```
 
 ## Limitions of the builtin `cProfile` module
 
@@ -32,17 +109,84 @@ As a result, applications built on top of LLMs are typically I/O bound, meaning 
 
 ## Getting a bird’s eye view with `pyinstrument`
 
-**`pyinstrument`** supports profiling asynchronous code and is relatively easy to use.
+**`pyinstrument`** is a powerful profiling tool for Python applications, including those using asyncio. It can provide an easy-to-understand overview of where an application spends most of its time.
 
-According to the [documentation](https://pyinstrument.readthedocs.io/en/latest/how-it-works.html#async-profiling):
+### How to use `pyinstrument`
 
-> This async support works by tracking the ‘context’ of execution, as provided by the built-in contextvars module. When you start a Profiler with the async_mode enabled or strict (not disabled), that Profiler is attached to the current async context.
+```python
+from pyinstrument import Profiler
+
+async def main():
+    # your asyncio code here
+
+profiler = Profiler()
+profiler.start()
+
+# run your asyncio main function
+await main()
+
+profiler.stop()
+print(profiler.output_text(unicode=True, color=True))
+
+```
+
+### Running `pyinstrument` on our example
+
+```plaintext
+Fetched data for user user123
+Preprocessed input data
+Made parallel API calls
+Processed request with LLM
+Postprocessed output data
+Unnecessary I/O operation
+Stored results
+
+  _     ._   __/__   _ _  _  _ _/_   Recorded: 21:58:18  Samples:  9
+ /_//_/// /_\ / //_// / //_'/ //     Duration: 12.009    CPU time: 0.010
+/   _/                      v4.6.1
+
+
+12.009 _UnixSelectorEventLoop._run_once  asyncio/base_events.py:1845
+|- 11.009 Handle._run  asyncio/events.py:78
+|     [5 frames hidden]  asyncio, IPython
+|        10.007 ZMQInteractiveShell.run_ast_nodes  IPython/core/interactiveshell.py:3367
+|        `- 10.007 <module>  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/644299150.py:1
+|           `- 10.007 main  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:67
+|              `- 10.007 handle_user_request  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:57
+|                 |- 3.002 process_request_with_llm  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:35
+|                 |  `- 3.002 sleep  asyncio/tasks.py:627
+|                 |        [2 frames hidden]  asyncio
+|                 |           3.002 [await]  asyncio/tasks.py
+|                 |- 2.002 postprocess_output  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:42
+|                 |  |- 1.001 sleep  asyncio/tasks.py:627
+|                 |  |     [2 frames hidden]  asyncio
+|                 |  `- 1.001 unnecesary_io_operation  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:4
+|                 |     `- 1.001 sleep  asyncio/tasks.py:627
+|                 |           [2 frames hidden]  asyncio
+|                 |- 2.001 fetch_user_data  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:11
+|                 |  `- 2.001 sleep  asyncio/tasks.py:627
+|                 |        [2 frames hidden]  asyncio
+|                 |- 2.001 store_results  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:50
+|                 |  `- 2.001 sleep  asyncio/tasks.py:627
+|                 |        [2 frames hidden]  asyncio
+|                 `- 1.001 preprocess_input  ../../../../../var/folders/_n/2hcmx0kn7d5497f8nc4nnb1m0000gn/T/ipykernel_35157/2529415599.py:18
+|                    `- 1.001 sleep  asyncio/tasks.py:627
+|                          [2 frames hidden]  asyncio
+`- 1.000 KqueueSelector.select  selectors.py:553
+      [2 frames hidden]  selectors, <built-in>
+```
+
+### Interpreting the output
+
+The output is organized as a tree, with the root node representing the entry point of the application. Each node represents a function call, and the indentation level indicates the call stack depth. The leftmost column indicates the total time spent in a function and its children. The rightmost column indicates the time spent in a function alone.
+
+In our example, we can see that the application spends most of its time fetching data for the user, making parallel API calls, and processing the request with the language model. And we can see that this time application spent in the `sleep` function, which is used to simulate I/O operations.
 
 ## Drilling down further with `yappi`
 
 **`yappi`** is another Python profiler that supports profiling asynchronous code.
 
-**Decorator for profiling an async function**
+### Decorator for profiling an async function
 
 ```python
 from asyncio import iscoroutinefunction
